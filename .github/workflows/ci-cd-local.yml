@@ -43,7 +43,7 @@ jobs:
           DB_NAME: todolist_db
           DB_DIALECT: mysql
           PORT: 3000
-        run: npx jest
+        run: npx jest --runInBand
 
   # JOB 2 : Build de l'image Docker et Smoke Test via Docker Compose
   build-and-smoke-test:
