@@ -59,15 +59,18 @@ jobs:
         run: docker compose up --build -d
 
       - name: Attendre que MySQL et le Backend s'initialisent
-        run: sleep 15
+        run: sleep 30
 
       - name: Afficher les logs du backend (Utile en cas de bug)
         run: docker compose logs todolist-backend
 
+      - name: Afficher l'état des conteneurs
+        run: docker compose ps
+
       - name: Smoke Test HTTP (Vérifier que l'API répond 200 sur Swagger)
         run: |
-          curl --fail http://localhost:3000/api/docs || exit 1
-
+          curl --fail -v http://127.0.0.1:3000/api/docs || exit 1
+          
       - name: Nettoyer et éteindre les conteneurs
         if: always()
         run: docker compose down
