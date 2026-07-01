@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  # 1. Le service de la base de données MySQL
+  todolist-db:
+    image: mysql:8.0
+    container_name: todolist-db
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: todolist_db
+    networks:
+      - todolist-network
+
+  # 2. Le service de ton application Backend
+  todolist-backend:
+    build: .
+    container_name: todolist-backend
+    ports:
+      - "3000:3000"
+    environment:
+      - DB_HOST=todolist-db
+      - DB_USER=root
+      - DB_PASSWORD=root
+      - DB_NAME=todolist_db
+      - DB_DIALECT=mysql
+      - PORT=3000
+    networks:
+      - todolist-network
+    depends_on:
+      - todolist-db
+
+networks:
+  todolist-network:
+    driver: bridge

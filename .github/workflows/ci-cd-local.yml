@@ -1,0 +1,78 @@
+name: CI/CD Pipeline Fil Rouge
+
+# 1. Déclencheurs (Triggers)
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  # JOB 1 : Exécution des tests avec une base de données éphémère
+  run-tests:
+    runs-on: ubuntu-latest
+
+    # On lance un conteneur MySQL "service" éphémère à côté du runner de test
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: todolist_db
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
+    steps:
+      - name: Récupérer le code source
+        uses: actions/checkout@v3
+
+      - name: Installer Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Installer les dépendances
+        run: npm install
+
+      - name: Lancer les tests unitaires et d'intégration
+        env:
+          DB_HOST: 127.0.0.1
+          DB_USER: root
+          DB_PASSWORD: root
+          DB_NAME: todolist_db
+          DB_DIALECT: mysql
+          PORT: 3000
+        run: npm run test
+
+  # JOB 2 : Build de l'image Docker et Smoke Test (uniquement si les tests passent !)
+  build-and-smoke-test:
+    needs: run-tests
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' # optionnel : s'exécute souvent sur le push main
+
+    steps:
+      - name: Récupérer le code source
+        uses: actions/checkout@v3
+
+      - name: Construire l'image Docker
+        run: docker build -t projet_devops_backend_image .
+
+      - name: Déployer localement l'application (Conteneur éphémère dans le runner)
+        run: |
+          docker run -d \
+            --name smoke-test-app \
+            -p 3000:3000 \
+            -e DB_HOST=localhost \
+            projet_devops_backend_image
+
+      - name: Attendre le démarrage de l'application
+        run: sleep 5
+
+      - name: Smoke Test HTTP (Vérifier que l'API répond 200 ou 302 sur Swagger)
+        run: |
+          curl --fail http://localhost:3000/api/docs || exit 1
+
+      - name: Nettoyer le conteneur de test
+        if: always()
+        run: docker rm -f smoke-test-app
